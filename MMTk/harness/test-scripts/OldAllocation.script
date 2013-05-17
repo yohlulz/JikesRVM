@@ -21,29 +21,33 @@ void main() {
     int threshold = 10;
     int iterations = 500;
     int old_gen_iterations = 10000;
-    int nr_threads = 1;
-    //TODO spawn threads
-    go(iterations, threshold, old_gen_iterations / nr_threads, old_gen_iterations);
+    int nr_threads = 2;
+    go(iterations, threshold, nr_threads, old_gen_iterations);
 }
 
-void go(int iterations, int threshold, int youngSize, int old_gen_iterations) {
+void go(int iterations, int threshold, int nr_threads, int old_gen_iterations) {
+    if (nr_threads > 0) {
+        spawn(go, iterations, threshold, nr_threads - 1 , old_gen_iterations);
+        print(tid(), " Spawn a thread");
+    }
     int i = 0;
     list outerScope = alloc(list);
     list oldScope = alloc(list);
 
     while (i < iterations) {
-        print("Iteration :" , i);
+        print(tid(), "Iteration :" , i);
         if (i % threshold == 0) {
             doOld(oldScope, old_gen_iterations);
         }
         int j = 0;
-        while (j < youngSize) {
+        while (j < old_gen_iterations) {
             insert(outerScope);
             j = j + 1;
         }
         clear(outerScope);
         i = i + 1;
     }
+    print(tid(), " done");
 }
 
 void doOld(list oldScope, int old_gen_iterations) {
