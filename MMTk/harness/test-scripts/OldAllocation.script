@@ -1,0 +1,76 @@
+
+/* A cell in a linked list */
+type cell {
+  cell next;
+  cell prev;
+}
+
+/* A list head - points to the head and tail */
+type list {
+  cell head;
+  cell tail;
+}
+
+/* A singly-linked list, so we can provide a chain of pointers stack -> nursery -> mature */
+type single {
+  single next;
+}
+
+void main() {
+    int list_size = 1000;
+    int threshold = 10;
+    int iterations = 500;
+    int old_gen_iterations = 10000;
+    int nr_threads = 1;
+    //TODO spawn threads
+    go(iterations, threshold, old_gen_iterations / nr_threads, old_gen_iterations);
+}
+
+void go(int iterations, int threshold, int youngSize, int old_gen_iterations) {
+    int i = 0;
+    list outerScope = alloc(list);
+    list oldScope = alloc(list);
+
+    while (i < iterations) {
+        print("Iteration :" , i);
+        if (i % threshold == 0) {
+            doOld(oldScope, old_gen_iterations);
+        }
+        int j = 0;
+        while (j < youngSize) {
+            insert(outerScope);
+            j = j + 1;
+        }
+        clear(outerScope);
+        i = i + 1;
+    }
+}
+
+void doOld(list oldScope, int old_gen_iterations) {
+    clear(oldScope);
+    int i = 0;
+    while (i < old_gen_iterations) {
+        insert(oldScope);
+        i = i + 1;
+    }
+}
+
+void clear(list resultList) {
+    resultList.head = null;
+    resultList.tail = null;
+}
+
+void insert(list l) {
+  cell c = alloc(cell);
+  c.next = null;
+  c.prev = null;
+  if (l.head == null) {
+    l.head = c;
+    l.tail = c;
+    return;
+  }
+  cell head = l.head;       // Language doesn't (yet) support x.y.z
+  c.next = head;
+  head.prev = c;
+  l.head = c;
+}
