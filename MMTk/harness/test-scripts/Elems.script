@@ -1,0 +1,90 @@
+
+/* A cell in a linked list */
+type cell {
+  cell next;
+}
+
+type list {
+  cell head;
+}
+
+void main() {
+    int checkValue = 35000;
+    int remove = 15000;
+    list result = create(checkValue);
+    result = remove(result, remove);
+    int i = 0;
+    while (i < checkValue) {
+        insert(result);
+        i = i + 1;
+    }
+    assert(length(result) == checkValue * 2 - remove, "Final list length not met.");
+    result = clear(result);
+    assert(length(result) == 0, "List must be empty");
+    gc();
+    insert(result);
+}
+
+list create(int n) {
+  list result = alloc(list);
+  while (n > 0) {
+    insert(result);
+    n = n - 1;
+  }
+  print("Created list of length ",length(result));
+  return result;
+}
+
+void insert(list l) {
+  cell c = alloc(cell);
+  if (l.head == null) {
+    l.head = c;
+    print("Inserted element as list's head.");
+    return;
+  }
+  cell head = l.head;       // Language doesn't (yet) support x.y.z
+  c.next = head;
+  l.head = c;
+}
+
+/*
+ * Return the length of a list
+ */
+int length(list l) {
+  if (l == null) {
+    return 0;
+  } elif (l.head == null) {
+    return 0;
+  }
+  cell c = l.head;
+  int n = 0;
+  while (c != null) {
+    c = c.next;
+    n = n + 1;
+  }
+  return n;
+}
+
+list remove(list l, int number) {
+    int i = 0;
+    while (i < number) {
+        removeHead(l);
+        i = i + 1;
+    }
+    print("Removed ", number, " elements from list's head.");
+    return l;
+}
+
+list clear(list l) {
+    print("Cleared list.");
+    return remove(l, length(l));
+}
+
+list removeHead(list l) {
+    cell head = l.head;
+    if (head == null) {
+        return l;
+    }
+    l.head = head.next;
+    return l;
+}
