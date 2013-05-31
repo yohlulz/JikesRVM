@@ -60,7 +60,11 @@ public final class Trace {
   private static EnumSet<Item> enabled = EnumSet.noneOf(Item.class);
 
   static {
-    //enable(Item.ENV);
+    enable(Item.COLLECT);
+    enable(Item.SCHEDULER);
+    enable(Item.SCHED_DETAIL);
+    enable(Item.TRACEOBJECT);
+    enable(Item.YIELD);
   }
 
   /**

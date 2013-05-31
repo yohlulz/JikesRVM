@@ -232,6 +232,7 @@ public final class JavaThreadModel extends ThreadModel {
   public void stopAllMutators() {
     Trace.trace(Item.SCHEDULER, "stopAllMutators");
     synchronized (trigger) {
+        Trace.trace(Item.SCHEDULER,"stopAllMutators - sync trigger");
       setState(BLOCKING);
       trigger.notifyAll();
     }
@@ -245,6 +246,7 @@ public final class JavaThreadModel extends ThreadModel {
   @Override
   public void resumeAllMutators() {
     synchronized (trigger) {
+        Trace.trace(Item.SCHEDULER, "resumeAllMutator - sync trigger");
       setState(MUTATOR);
       trigger.notifyAll();
     }
@@ -252,6 +254,7 @@ public final class JavaThreadModel extends ThreadModel {
 
   protected void waitForGCStart() {
     synchronized(trigger) {
+        Trace.trace(Item.SCHEDULER, "waitForGCStart - Sync trigger");
       while(!isState(BLOCKED)) {
         try {
           trigger.wait();

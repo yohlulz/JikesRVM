@@ -32,8 +32,9 @@ public class Collection extends org.mmtk.vm.Collection {
 
   @Override
   public void requestMutatorFlush() {
-    Mutator.current().getContext().flush();
-    Assert.notImplemented();
+      for (Mutator mutator : Mutators.getAll()) {
+          mutator.getContext().flush();
+      }
   }
 
   /**

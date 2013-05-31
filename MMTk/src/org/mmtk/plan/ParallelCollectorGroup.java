@@ -12,6 +12,7 @@
  */
 package org.mmtk.plan;
 
+import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.utility.Constants;
 
 import org.mmtk.vm.Monitor;
@@ -128,6 +129,7 @@ public class ParallelCollectorGroup implements Constants {
     lock.lock();
     while (contextsParked < contexts.length) {
       lock.await();
+      System.out.println("waitForCycle - wait concurrent threads to stop.");
     }
     lock.unlock();
   }
