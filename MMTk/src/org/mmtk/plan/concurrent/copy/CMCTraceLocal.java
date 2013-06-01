@@ -4,6 +4,7 @@ import java.util.Map.Entry;
 
 import org.mmtk.plan.Trace;
 import org.mmtk.plan.TraceLocal;
+import org.mmtk.policy.CopyLocal;
 import org.mmtk.policy.CopySpace;
 import org.mmtk.policy.Space;
 import org.vmmagic.pragma.Inline;
@@ -11,8 +12,11 @@ import org.vmmagic.unboxed.ObjectReference;
 
 public class CMCTraceLocal extends TraceLocal {
 
-    public CMCTraceLocal(Trace trace) {
+    private final CopyLocal toSpace;
+
+    public CMCTraceLocal(Trace trace, CopyLocal toSpace) {
         super(trace);
+        this.toSpace = toSpace;
     }
 
     @Override
@@ -44,7 +48,6 @@ public class CMCTraceLocal extends TraceLocal {
 
     @Override
     public boolean willNotMoveInCurrentCollection(ObjectReference object) {
-        //FIXME from space
-        return !Space.isInSpace(CMC.idForSpace(CMC.fromSpace()), object);
+        return Space.isInSpace(toSpace.getSpace().getDescriptor(), object);
     }
 }
