@@ -55,6 +55,7 @@ public final class Trace {
     /** Store operations in the harness language */             STORE,
     /** calls to traceObject during GC */                       TRACEOBJECT,
     /** Yieldpoints - used to debug scheduler policy */         YIELD,
+    DEBUG,
     }
 
   private static EnumSet<Item> enabled = EnumSet.noneOf(Item.class);
@@ -65,6 +66,7 @@ public final class Trace {
     enable(Item.SCHED_DETAIL);
     enable(Item.TRACEOBJECT);
     enable(Item.YIELD);
+    enable(Item.DEBUG);
   }
 
   /**
