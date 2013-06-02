@@ -48,7 +48,7 @@ public class CMCMutator extends ConcurrentMutator {
 
     @Override
     public Allocator getAllocatorFromSpace(Space space) {
-        for (CopySpace fromSpace : CMC.idBySpace.keySet()) {
+        for (CopySpace fromSpace : CMC.usedFlagBySpace.keySet()) {
             if (fromSpace == space) {
                 return copySpace;
             }

@@ -1,12 +1,11 @@
 package org.mmtk.plan.concurrent.copy;
 
-import java.util.Map.Entry;
-
 import org.mmtk.plan.Trace;
 import org.mmtk.plan.TraceLocal;
 import org.mmtk.policy.CopyLocal;
 import org.mmtk.policy.CopySpace;
 import org.mmtk.policy.Space;
+import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.unboxed.ObjectReference;
 
@@ -24,9 +23,9 @@ public class CMCTraceLocal extends TraceLocal {
         if (object.isNull()) {
             return false;
         }
-        for (Entry<CopySpace, Integer> mcEntry : CMC.idBySpace.entrySet()) {
-            if (Space.isInSpace(mcEntry.getValue(), object)) {
-                return mcEntry.getKey().isLive(object);
+        for (CopySpace space : CMC.usedFlagBySpace.keySet()) {
+            if (Space.isInSpace(space.getDescriptor(), object)) {
+                return space.isLive(object);
             }
         }
         return super.isLive(object);
@@ -38,11 +37,13 @@ public class CMCTraceLocal extends TraceLocal {
         if (object.isNull()) {
             return object;
         }
-        for (Entry<CopySpace, Integer> mcEntry : CMC.idBySpace.entrySet()) {
-            if (Space.isInSpace(mcEntry.getValue(), object)) {
-                return mcEntry.getKey().traceObject(this, object, CMC.CMC_ALLOC);
+        for (CopySpace space : CMC.usedFlagBySpace.keySet()) {
+            if (Space.isInSpace(space.getDescriptor(), object)) {
+                return space.traceObject(this, object, CMC.CMC_ALLOC);
             }
         }
+        VM.activePlan.global().printPreStats();
+        VM.activePlan.global().printUsedPages();
         return super.traceObject(object);
     }
 

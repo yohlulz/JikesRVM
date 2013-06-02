@@ -20,7 +20,6 @@ import static org.mmtk.plan.concurrent.copy.SpaceState.*;
 public class CMC extends Concurrent {
 
     private static final float MEMORY_FRACTION = 0.65f;
-    static final ConcurrentHashMap<CopySpace, Integer> idBySpace = new ConcurrentHashMap<CopySpace, Integer>();
     static final ConcurrentHashMap<CopySpace, AtomicReference<SpaceState>> usedFlagBySpace = new ConcurrentHashMap<CopySpace, AtomicReference<SpaceState>>();
 
     public static final int CMC_ALLOC = Plan.ALLOC_DEFAULT;
@@ -30,10 +29,8 @@ public class CMC extends Concurrent {
     private final Trace cmcTrace;
 
     static {
-        final CopySpace defaultSpace = new CopySpace("default-cmc", false, VMRequest.create());
-        idBySpace.put(defaultSpace, defaultSpace.getDescriptor());
-        usedFlagBySpace.put(defaultSpace, new AtomicReference<SpaceState>(NO_USED));
-
+        final CopySpace defaultFrom = new CopySpace("cmc-default", true, VMRequest.create());
+        usedFlagBySpace.put(defaultFrom, new AtomicReference<SpaceState>(NO_USED));
     }
 
     public CMC() {
@@ -46,11 +43,9 @@ public class CMC extends Concurrent {
         final int nurseryPages = Options.nurserySize.getMaxNursery();
         final int totalPages = (int) (Space.AVAILABLE_PAGES * MEMORY_FRACTION);
 
-        final int count = totalPages / nurseryPages;
-        final float nurseryFraction = Space.AVAILABLE_PAGES / (float) nurseryPages;
+        final int count = (totalPages / nurseryPages) % 17;
         for (int i = 0; i < count; i++) {
-            final CopySpace space = new CopySpace("cmc-" + i, false, VMRequest.create(nurseryFraction));
-            idBySpace.put(space, space.getDescriptor());
+            final CopySpace space = new CopySpace("cmc-" + i, true, VMRequest.create());
             usedFlagBySpace.put(space, new AtomicReference<SpaceState>(NO_USED));
         }
     }
@@ -67,7 +62,7 @@ public class CMC extends Concurrent {
      */
     static CopySpace fromSpace(boolean triggerNew) {
         if (triggerNew || fromSpace == null) {
-            calculateNewSpace(fromSpace, SpaceState.FROM);
+            fromSpace = calculateNewSpace(fromSpace, SpaceState.FROM);
         }
         return fromSpace;
     }
@@ -80,33 +75,27 @@ public class CMC extends Concurrent {
      */
     static CopySpace toSpace(boolean triggerNew) {
         if (triggerNew || toSpace == null) {
-            calculateNewSpace(toSpace, SpaceState.TO);
+            toSpace = calculateNewSpace(toSpace, SpaceState.TO);
         }
         return toSpace;
     }
 
-    private static void calculateNewSpace(CopySpace space, SpaceState state) {
+    private static CopySpace calculateNewSpace(CopySpace space, SpaceState state) {
         for (Entry<CopySpace, AtomicReference<SpaceState>> flagEntry : usedFlagBySpace.entrySet()) {
             if (flagEntry.getValue().compareAndSet(NO_USED, state)) {
                 if (space != null) {
                     if (usedFlagBySpace.get(space).compareAndSet(FROM, NO_USED)
                             || usedFlagBySpace.get(space).compareAndSet(TO, NO_USED)) {
-                        space = flagEntry.getKey();
-                        return;
+                        return flagEntry.getKey();
                     } else {
                         flagEntry.getValue().set(NO_USED);
                     }
                 } else {
-                    space = flagEntry.getKey();
-                    return;
+                    return flagEntry.getKey();
                 }
             }
         }
-        space = null;
-    }
-
-    static int idForSpace(CopySpace space) {
-        return idBySpace.get(space);
+        return null;
     }
 
     @Override
@@ -140,8 +129,8 @@ public class CMC extends Concurrent {
 
     @Override
     public boolean willNeverMove(ObjectReference object) {
-        for (Entry<CopySpace, Integer> space : idBySpace.entrySet()) {
-            if (Space.isInSpace(space.getValue(), object)) {
+        for (Entry<CopySpace, AtomicReference<SpaceState>> spaceEntry : usedFlagBySpace.entrySet()) {
+            if (Space.isInSpace(spaceEntry.getKey().getDescriptor(), object)) {
                 return false;
             }
         }
@@ -156,10 +145,5 @@ public class CMC extends Concurrent {
     @Override
     public final int getCollectionReserve() {
         return toSpace(false).reservedPages() + super.getCollectionReserve();
-    }
-
-    @Override
-    public final int getPagesAvail() {
-        return toSpace(false).availablePhysicalPages();
     }
 }
