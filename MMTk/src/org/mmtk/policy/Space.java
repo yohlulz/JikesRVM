@@ -765,4 +765,9 @@ public abstract class Space implements Constants {
     Extent rtn = mb.lsh(LOG_BYTES_IN_MBYTE).toExtent();
     return chunkAlign(rtn, false);
   }
+
+  @Override
+  public String toString() {
+      return getName();
+  }
 }
