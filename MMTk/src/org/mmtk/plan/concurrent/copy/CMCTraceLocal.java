@@ -7,12 +7,24 @@ import org.mmtk.policy.CopyLocal;
 import org.mmtk.policy.CopySpace;
 import org.mmtk.policy.Space;
 import org.vmmagic.pragma.Inline;
+import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.unboxed.ObjectReference;
 
 import static org.mmtk.harness.lang.Trace.trace;
 
+/**
+ * Represents the per-thread objects trace.
+ *
+ * @author Ovidiu Maja
+ * @version 03.06.2013
+ *
+ */
+@Uninterruptible
 public class CMCTraceLocal extends TraceLocal {
 
+    /**
+     * Collector's copy space.
+     */
     private final CopyLocal toSpace;
 
     public CMCTraceLocal(Trace trace, CopyLocal toSpace) {

@@ -10,13 +10,29 @@ import org.mmtk.policy.Space;
 import org.mmtk.utility.alloc.Allocator;
 import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
+import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.unboxed.Address;
 import org.vmmagic.unboxed.ObjectReference;
 
 import static org.mmtk.harness.lang.Trace.trace;
 
+/**
+ * Represents the per-thread mutator state for the concurrent copying collector.
+ *
+ * @author Ovidiu Maja
+ * @version 03.06.2013
+ */
+@Uninterruptible
 public class CMCMutator extends ConcurrentMutator {
+
+    /**
+     * Per thread copy space used to allocate space.
+     */
     private final CopyLocal copySpace;
+
+    /**
+     * Remembered sets.
+     */
     private final TraceWriteBuffer remset;
 
     public CMCMutator() {

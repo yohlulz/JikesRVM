@@ -27,7 +27,7 @@ import static org.mmtk.harness.lang.Trace.trace;
 
 /**
  * {@inheritDoc}
- * Represents a global state of a concurrent copying collector based on multiple copy spaces that 
+ * Represents a global state of a concurrent copying collector based on multiple copy spaces that
  * are accessed in parallel from multiple threads.
  * 
  * @author Ovidiu Maja
@@ -37,17 +37,17 @@ import static org.mmtk.harness.lang.Trace.trace;
 public class CMC extends Concurrent {
 
     /**
-     * 
+     * Available memory used fraction.
      */
     private static final float MEMORY_FRACTION = 0.65f;
 
     /**
-     * 
+     * Lowest number of spaces to be allocated beside the default copy space
      */
     private static final int MIN_SPACES = 2;
 
     /**
-     * 
+     * Highest number of copy spaces to be allocated beside the default copy space.
      */
     private static final int MAX_SPACES = 19;
 
@@ -109,10 +109,10 @@ public class CMC extends Concurrent {
     }
 
     /**
-     * 
-     * @param space
-     * @param state
-     * @return
+     * Computes a new space based on current statistics.
+     * @param space Previous space to be considered when choosing a new space.
+     * @param state Current state to be considered when choosing a new space.
+     * @return A new chosen space
      */
     static CopySpace calculateNewSpace(CopySpace space, SpaceState state) {
         trace(Item.DEBUG, state.toString() + usedFlagBySpace);
@@ -133,11 +133,6 @@ public class CMC extends Concurrent {
         return null;
     }
 
-    /**
-     * 
-     * @param space
-     * @param state
-     */
     private static void updateSpaceCount(CopySpace space, SpaceState state) {
         if (state == TO_SPACE) {
             countBySpace.get(space).incrementAndGet();
@@ -218,11 +213,6 @@ public class CMC extends Concurrent {
         return getReservedPagesForSpaces(TO_SPACE) + super.getPagesUsed();
     }
 
-    /**
-     * 
-     * @param state
-     * @return
-     */
     private int getReservedPagesForSpaces(SpaceState state) {
         int result = 0;
         for (Entry<CopySpace, AtomicReference<SpaceState>> space : usedFlagBySpace.entrySet()) {
@@ -239,9 +229,10 @@ public class CMC extends Concurrent {
     }
 
     /**
-     * 
-     * @author Ovidiu Maja
+     * Represents a comparator for space's state.
      *
+     * @author Ovidiu Maja
+     * @version 03.05.2013
      */
     private static class SpaceEntryComparator implements Comparator<Entry<CopySpace, AtomicReference<SpaceState>>> {
 

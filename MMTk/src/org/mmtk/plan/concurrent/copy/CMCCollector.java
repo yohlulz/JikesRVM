@@ -11,15 +11,34 @@ import org.mmtk.policy.Space;
 import org.mmtk.utility.ForwardingWord;
 import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
+import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.unboxed.Address;
 import org.vmmagic.unboxed.ObjectReference;
 
 import static org.mmtk.harness.lang.Trace.trace;
 
+/**
+ * Represents a per-thread collector for the concurrent copying collector.
+ *
+ * @author Ovidiu Maja
+ * @version 03.06.2013
+ */
+@Uninterruptible
 public class CMCCollector extends ConcurrentCollector {
 
+    /**
+     * Thread's own trace
+     */
     private final CMCTraceLocal cmcTrace;
+
+    /**
+     * Per thread copy space.
+     */
     private final CopyLocal copySpace;
+
+    /**
+     * Large object space used to copy objects directly to it.
+     */
     private final LargeObjectLocal largeSpace;
 
     public CMCCollector() {
