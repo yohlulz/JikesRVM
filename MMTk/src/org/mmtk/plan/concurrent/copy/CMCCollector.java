@@ -1,15 +1,20 @@
 package org.mmtk.plan.concurrent.copy;
 
+import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.plan.Plan;
 import org.mmtk.plan.TraceLocal;
 import org.mmtk.plan.concurrent.ConcurrentCollector;
 import org.mmtk.policy.CopyLocal;
+import org.mmtk.policy.CopySpace;
 import org.mmtk.policy.LargeObjectLocal;
+import org.mmtk.policy.Space;
 import org.mmtk.utility.ForwardingWord;
 import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.unboxed.Address;
 import org.vmmagic.unboxed.ObjectReference;
+
+import static org.mmtk.harness.lang.Trace.trace;
 
 public class CMCCollector extends ConcurrentCollector {
 
@@ -72,10 +77,12 @@ public class CMCCollector extends ConcurrentCollector {
     @Inline
     public void collectionPhase(short phaseId, boolean primary) {
         if (phaseId == CMC.PREPARE) {
-            copySpace.rebind(CMC.toSpace(true));
-            super.collectionPhase(phaseId, primary);
+            Space oldSpace = copySpace.getSpace();
+            copySpace.rebind(CMC.calculateNewSpace((CopySpace) copySpace.getSpace(), SpaceState.TO_SPACE));
+            trace(Item.DEBUG, "C" + getId() + " - prepare - " + oldSpace + " -> " + copySpace.getSpace());
             largeSpace.prepare(true);
             cmcTrace.prepare();
+            super.collectionPhase(phaseId, primary);
             return;
         }
 

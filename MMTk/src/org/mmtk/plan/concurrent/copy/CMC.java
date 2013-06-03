@@ -1,9 +1,15 @@
 package org.mmtk.plan.concurrent.copy;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.plan.Plan;
 import org.mmtk.plan.Trace;
 import org.mmtk.plan.concurrent.Concurrent;
@@ -13,40 +19,88 @@ import org.mmtk.utility.heap.VMRequest;
 import org.mmtk.utility.options.Options;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Interruptible;
+import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.unboxed.ObjectReference;
 
 import static org.mmtk.plan.concurrent.copy.SpaceState.*;
+import static org.mmtk.harness.lang.Trace.trace;
 
+/**
+ * {@inheritDoc}
+ * Represents a global state of a concurrent copying collector based on multiple copy spaces that 
+ * are accessed in parallel from multiple threads.
+ * 
+ * @author Ovidiu Maja
+ * @version 20.03.2013
+ */
+@Uninterruptible
 public class CMC extends Concurrent {
 
+    /**
+     * 
+     */
     private static final float MEMORY_FRACTION = 0.65f;
-    static final ConcurrentHashMap<CopySpace, AtomicReference<SpaceState>> usedFlagBySpace = new ConcurrentHashMap<CopySpace, AtomicReference<SpaceState>>();
 
+    /**
+     * 
+     */
+    private static final int MIN_SPACES = 2;
+
+    /**
+     * 
+     */
+    private static final int MAX_SPACES = 19;
+
+    /**
+     * Stores each copy space by its corresponding state.
+     */
+    static final ConcurrentHashMap<CopySpace, AtomicReference<SpaceState>> usedFlagBySpace = new ConcurrentHashMap<>();
+
+    /**
+     * Stores each copy state by its accessed count.
+     */
+    static final ConcurrentHashMap<CopySpace, AtomicLong> countBySpace = new ConcurrentHashMap<>();
+
+    /**
+     * Default allocator id.
+     */
     public static final int CMC_ALLOC = Plan.ALLOC_DEFAULT;
-    private static CopySpace fromSpace;
-    private static CopySpace toSpace;
 
+    /**
+     * Global trace.
+     */
     private final Trace cmcTrace;
 
+    /**
+     * Default copy space allocation.
+     */
     static {
-        final CopySpace defaultFrom = new CopySpace("cmc-default", true, VMRequest.create());
-        usedFlagBySpace.put(defaultFrom, new AtomicReference<SpaceState>(NO_USED));
+        final CopySpace defaultFrom = new CopySpace("cmc-default", true, VMRequest.create((1 - MEMORY_FRACTION) / MIN_SPACES, true));
+        usedFlagBySpace.put(defaultFrom, new AtomicReference<SpaceState>(NOT_USED));
+        countBySpace.put(defaultFrom, new AtomicLong());
     }
 
     public CMC() {
         cmcTrace = new Trace(metaDataSpace);
     }
 
+    /**
+     * {@inheritDoc}
+     * Allocates the rest of the spaces with respect to the nursery max size
+     */
     @Override
     @Interruptible
     public void processOptions() {
+        super.processOptions();
+
         final int nurseryPages = Options.nurserySize.getMaxNursery();
         final int totalPages = (int) (Space.AVAILABLE_PAGES * MEMORY_FRACTION);
 
-        final int count = (totalPages / nurseryPages) % 17;
+        final int count = MIN_SPACES + (totalPages / nurseryPages) % (MAX_SPACES - MIN_SPACES);
         for (int i = 0; i < count; i++) {
-            final CopySpace space = new CopySpace("cmc-" + i, true, VMRequest.create());
-            usedFlagBySpace.put(space, new AtomicReference<SpaceState>(NO_USED));
+            final CopySpace space = new CopySpace("cmc-" + i, true, VMRequest.create(MEMORY_FRACTION / (count + 1 ), true));
+            usedFlagBySpace.put(space, new AtomicReference<SpaceState>(NOT_USED));
+            countBySpace.put(space, new AtomicLong());
         }
     }
 
@@ -55,47 +109,69 @@ public class CMC extends Concurrent {
     }
 
     /**
-     * At each call a new mutator space (from space) is calculated
      * 
-     * @param triggerNew
-     *            Tells if a new space should be considered
+     * @param space
+     * @param state
+     * @return
      */
-    static CopySpace fromSpace(boolean triggerNew) {
-        if (triggerNew || fromSpace == null) {
-            fromSpace = calculateNewSpace(fromSpace, SpaceState.FROM);
+    static CopySpace calculateNewSpace(CopySpace space, SpaceState state) {
+        trace(Item.DEBUG, state.toString() + usedFlagBySpace);
+        final Entry<CopySpace, AtomicReference<SpaceState>> consideredEntry = filterSpaces(state);
+        if (space != null) {
+            if (usedFlagBySpace.get(space).compareAndSet(FROM_SPACE, NOT_USED)
+                    || usedFlagBySpace.get(space).compareAndSet(TO_SPACE, NOT_USED)) {
+                updateSpaceCount(consideredEntry.getKey(), state);
+                return consideredEntry.getKey();
+            } else {
+                usedFlagBySpace.get(consideredEntry.getKey()).set(consideredEntry.getValue().get());
+            }
+        } else {
+            updateSpaceCount(consideredEntry.getKey(), state);
+            return consideredEntry.getKey();
         }
-        return fromSpace;
+        trace(Item.DEBUG, "Check CMC space calulation, it returned null.");
+        return null;
     }
 
     /**
-     * At each call a new collector space (to space) is calculated
      * 
-     * @param triggerNew
-     *            Tells if a new space should be considered
+     * @param space
+     * @param state
      */
-    static CopySpace toSpace(boolean triggerNew) {
-        if (triggerNew || toSpace == null) {
-            toSpace = calculateNewSpace(toSpace, SpaceState.TO);
+    private static void updateSpaceCount(CopySpace space, SpaceState state) {
+        if (state == TO_SPACE) {
+            countBySpace.get(space).incrementAndGet();
         }
-        return toSpace;
+        if (state == FROM_SPACE) {
+            countBySpace.get(space).decrementAndGet();
+        }
     }
 
-    private static CopySpace calculateNewSpace(CopySpace space, SpaceState state) {
-        for (Entry<CopySpace, AtomicReference<SpaceState>> flagEntry : usedFlagBySpace.entrySet()) {
-            if (flagEntry.getValue().compareAndSet(NO_USED, state)) {
-                if (space != null) {
-                    if (usedFlagBySpace.get(space).compareAndSet(FROM, NO_USED)
-                            || usedFlagBySpace.get(space).compareAndSet(TO, NO_USED)) {
-                        return flagEntry.getKey();
-                    } else {
-                        flagEntry.getValue().set(NO_USED);
-                    }
-                } else {
-                    return flagEntry.getKey();
-                }
+    /**
+     * Filter all spaces to a space best fit for the desired state.
+     * @param state Desired state to filter all spaces by.
+     * @return An entry containing the best fit space and the space's old state.
+     */
+    private static Entry<CopySpace, AtomicReference<SpaceState>> filterSpaces(SpaceState state) {
+
+        final List<Entry<CopySpace, AtomicReference<SpaceState>>> result = new ArrayList<>(usedFlagBySpace.entrySet());
+        Collections.sort(result, new SpaceEntryComparator(state));
+        /* try to set the new state for the most fit space for the desired state
+         * -----------------
+         * if one space's state has already been changed -> try the next best fit space for the desired state.
+         *  */
+        for (Entry<CopySpace, AtomicReference<SpaceState>> entry : result) {
+            if (usedFlagBySpace.get(entry.getKey()).compareAndSet(entry.getValue().get(), state)) {
+                return entry;
             }
         }
-        return null;
+        /* worst case scenario -> all spaces have already been changed, so return the best fit space
+         * since we took cpu to filter it and let the caller deal with it.
+         * -----------------------
+         * for this case to happen, it would need a n concurrency level, where n is the size of usedFlagBySpace and all other threads to
+         * successfully change the value for one space.
+         *   */
+        return result.get(0);
     }
 
     @Override
@@ -104,7 +180,7 @@ public class CMC extends Concurrent {
         if (phaseId == CMC.PREPARE) {
             super.collectionPhase(phaseId);
             for (Entry<CopySpace, AtomicReference<SpaceState>> spaceEntry : usedFlagBySpace.entrySet()) {
-                spaceEntry.getKey().prepare(spaceEntry.getValue().get() == FROM);
+                spaceEntry.getKey().prepare(spaceEntry.getValue().get() == FROM_SPACE);
             }
             cmcTrace.prepareNonBlocking();
             return;
@@ -118,7 +194,7 @@ public class CMC extends Concurrent {
         if (phaseId == CMC.RELEASE) {
             cmcTrace.release();
             for (Entry<CopySpace, AtomicReference<SpaceState>> spaceEntry : usedFlagBySpace.entrySet()) {
-                if (spaceEntry.getValue().get() == FROM) {
+                if (spaceEntry.getValue().get() == FROM_SPACE) {
                     spaceEntry.getKey().release();
                 }
             }
@@ -139,11 +215,54 @@ public class CMC extends Concurrent {
 
     @Override
     public int getPagesUsed() {
-        return toSpace(false).reservedPages() + super.getPagesUsed();
+        return getReservedPagesForSpaces(TO_SPACE) + super.getPagesUsed();
+    }
+
+    /**
+     * 
+     * @param state
+     * @return
+     */
+    private int getReservedPagesForSpaces(SpaceState state) {
+        int result = 0;
+        for (Entry<CopySpace, AtomicReference<SpaceState>> space : usedFlagBySpace.entrySet()) {
+            if (space.getValue().get() == state) {
+                result += space.getKey().reservedPages();
+            }
+        }
+        return result;
     }
 
     @Override
     public final int getCollectionReserve() {
-        return toSpace(false).reservedPages() + super.getCollectionReserve();
+        return getReservedPagesForSpaces(TO_SPACE) + super.getCollectionReserve();
+    }
+
+    /**
+     * 
+     * @author Ovidiu Maja
+     *
+     */
+    private static class SpaceEntryComparator implements Comparator<Entry<CopySpace, AtomicReference<SpaceState>>> {
+
+        private final SpaceState state;
+
+        SpaceEntryComparator(SpaceState state) {
+            this.state = state;
+        }
+
+        @Override
+        public int compare(Entry<CopySpace, AtomicReference<SpaceState>> fromEntry, Entry<CopySpace, AtomicReference<SpaceState>> toEntry) {
+            final SpaceState from = fromEntry.getValue().get();
+            final SpaceState to = toEntry.getValue().get();
+            final int result = from.compareTo(to);
+            if (result == 0) {
+                final long toCount = countBySpace.get(toEntry.getKey()).get();
+                final long fromCount = countBySpace.get(fromEntry.getKey()).get();
+                return (int) (state == SpaceState.FROM_SPACE ? toCount - fromCount : fromCount - toCount);
+            } else {
+                return result;
+            }
+        }
     }
 }

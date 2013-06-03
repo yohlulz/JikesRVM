@@ -1,9 +1,9 @@
 package org.mmtk.plan.concurrent.copy;
 
+import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.plan.Plan;
 import org.mmtk.plan.TraceWriteBuffer;
 import org.mmtk.plan.concurrent.ConcurrentMutator;
-import org.mmtk.plan.concurrent.marksweep.CMS;
 import org.mmtk.policy.CopyLocal;
 import org.mmtk.policy.CopySpace;
 import org.mmtk.policy.Space;
@@ -12,6 +12,8 @@ import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.unboxed.Address;
 import org.vmmagic.unboxed.ObjectReference;
+
+import static org.mmtk.harness.lang.Trace.trace;
 
 public class CMCMutator extends ConcurrentMutator {
     private final CopyLocal copySpace;
@@ -25,7 +27,8 @@ public class CMCMutator extends ConcurrentMutator {
     @Override
     public void initMutator(int id) {
         super.initMutator(id);
-        copySpace.rebind(CMC.fromSpace(true));
+        copySpace.rebind(CMC.calculateNewSpace(null, SpaceState.FROM_SPACE));
+        trace(Item.DEBUG, "M" + id + " - init - " + copySpace.getSpace());
     }
 
     @Override
@@ -61,7 +64,9 @@ public class CMCMutator extends ConcurrentMutator {
     public void collectionPhase(short phaseId, boolean primary) {
         if (phaseId == CMC.RELEASE) {
             super.collectionPhase(phaseId, primary);
-            copySpace.rebind(CMC.fromSpace(true));
+            Space oldSpace = copySpace.getSpace();
+            copySpace.rebind(CMC.calculateNewSpace((CopySpace) copySpace.getSpace(), SpaceState.FROM_SPACE));
+            trace(Item.DEBUG, "M" + getId() + "- release - " + oldSpace + " -> " + copySpace.getSpace());
         }
         super.collectionPhase(phaseId, primary);
     }
@@ -77,9 +82,12 @@ public class CMCMutator extends ConcurrentMutator {
             return;
         if (barrierActive) {
             if (!ref.isNull()) {
-                if (Space.isInSpace(CMS.MARK_SWEEP, ref))
-                    CMS.msSpace.traceObject(remset, ref);
-                else if (Space.isInSpace(CMC.IMMORTAL, ref))
+                for (CopySpace space : CMC.usedFlagBySpace.keySet()) {
+                    if (Space.isInSpace(space.getDescriptor(), ref)) {
+                        space.traceObject(remset, ref, CMC.CMC_ALLOC);
+                    }
+                }
+                if (Space.isInSpace(CMC.IMMORTAL, ref))
                     CMC.immortalSpace.traceObject(remset, ref);
                 else if (Space.isInSpace(CMC.LOS, ref))
                     CMC.loSpace.traceObject(remset, ref);
@@ -94,9 +102,12 @@ public class CMCMutator extends ConcurrentMutator {
 
         if (VM.VERIFY_ASSERTIONS) {
             if (!ref.isNull() && !Plan.gcInProgress()) {
-                if (Space.isInSpace(CMS.MARK_SWEEP, ref))
-                    VM.assertions._assert(CMS.msSpace.isLive(ref));
-                else if (Space.isInSpace(CMC.IMMORTAL, ref))
+                for (CopySpace space : CMC.usedFlagBySpace.keySet()) {
+                    if (Space.isInSpace(space.getDescriptor(), ref)) {
+                        VM.assertions._assert(space.isLive(ref));
+                    }
+                }
+                if (Space.isInSpace(CMC.IMMORTAL, ref))
                     VM.assertions._assert(CMC.immortalSpace.isLive(ref));
                 else if (Space.isInSpace(CMC.LOS, ref))
                     VM.assertions._assert(CMC.loSpace.isLive(ref));

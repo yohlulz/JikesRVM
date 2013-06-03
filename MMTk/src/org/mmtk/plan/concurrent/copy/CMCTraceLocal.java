@@ -1,13 +1,15 @@
 package org.mmtk.plan.concurrent.copy;
 
+import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.plan.Trace;
 import org.mmtk.plan.TraceLocal;
 import org.mmtk.policy.CopyLocal;
 import org.mmtk.policy.CopySpace;
 import org.mmtk.policy.Space;
-import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.unboxed.ObjectReference;
+
+import static org.mmtk.harness.lang.Trace.trace;
 
 public class CMCTraceLocal extends TraceLocal {
 
@@ -38,12 +40,12 @@ public class CMCTraceLocal extends TraceLocal {
             return object;
         }
         for (CopySpace space : CMC.usedFlagBySpace.keySet()) {
+            trace(Item.DEBUG, space.toString() + ": " + Space.isInSpace(space.getDescriptor(), object) +  "  " + object.toAddress());
             if (Space.isInSpace(space.getDescriptor(), object)) {
                 return space.traceObject(this, object, CMC.CMC_ALLOC);
             }
         }
-        VM.activePlan.global().printPreStats();
-        VM.activePlan.global().printUsedPages();
+        trace(Item.DEBUG, "Last space: " + toSpace.getSpace().toString());
         return super.traceObject(object);
     }
 
