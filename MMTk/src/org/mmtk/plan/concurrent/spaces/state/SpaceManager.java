@@ -91,6 +91,25 @@ public final class SpaceManager {
         return null;
     }
 
+    public boolean addSpace(Space space) {
+        return addSpace(space, NOT_USED);
+    }
+
+    public boolean addSpace(Space space, SpaceState initialState) {
+        if (usedFlagBySpace.putIfAbsent(space, new AtomicReference<SpaceState>(initialState)) == null) {
+            return countBySpace.putIfAbsent(space, new AtomicLong()) == null;
+        }
+        return false;
+    }
+
+    public ConcurrentHashMap<Space, AtomicReference<SpaceState>> getUsedFlagBySpace() {
+        return usedFlagBySpace;
+    }
+
+    public ConcurrentHashMap<Space, AtomicLong> getCountBySpace() {
+        return countBySpace;
+    }
+
     private void updateSpaceCount(Space space, SpaceState state) {
         if (state == TO_SPACE) {
             countBySpace.get(space).incrementAndGet();
@@ -138,7 +157,7 @@ public final class SpaceManager {
      * @return Number of spaces.
      */
     @Inline
-    public static float getNumberOfSpaces() {
+    public static int getNumberOfSpaces() {
         final int nurseryPages = Options.nurserySize.getMaxNursery();
         final int totalPages = (int) (Space.AVAILABLE_PAGES * MEMORY_FRACTION);
 
