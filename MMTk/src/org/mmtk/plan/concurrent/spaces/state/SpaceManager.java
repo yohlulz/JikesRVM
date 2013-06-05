@@ -33,15 +33,15 @@ public final class SpaceManager {
     /**
      * Lowest number of spaces to be allocated beside the default copy space
      */
-    private static final int MIN_SPACES = 2;
+    public static final int MIN_SPACES = 2;
 
     /**
      * Highest number of copy spaces to be allocated beside the default copy space.
      */
-    private static final int MAX_SPACES = 19;
+    public static final int MAX_SPACES = 19;
 
     /**
-     * === Optimisation === Represents a per thread comparator used for sorting spaces by type and collection count.
+     * === Optimization === Represents a per thread comparator used for sorting spaces by type and collection count.
      */
     private static final ThreadLocal<SpaceEntryComparator<Space>> comparators = new ThreadLocal<SpaceEntryComparator<Space>>() {
         @Override
