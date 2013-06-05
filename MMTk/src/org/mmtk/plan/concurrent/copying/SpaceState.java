@@ -1,4 +1,4 @@
-package org.mmtk.plan.concurrent.copy;
+package org.mmtk.plan.concurrent.copying;
 
 public enum SpaceState {
     NOT_USED, TO_SPACE, FROM_SPACE;

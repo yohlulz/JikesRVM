@@ -1,4 +1,4 @@
-package org.mmtk.plan.concurrent.copy;
+package org.mmtk.plan.concurrent.copying;
 
 import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.plan.Plan;

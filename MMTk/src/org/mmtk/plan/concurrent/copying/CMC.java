@@ -1,4 +1,4 @@
-package org.mmtk.plan.concurrent.copy;
+package org.mmtk.plan.concurrent.copying;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,7 +22,7 @@ import org.vmmagic.pragma.Interruptible;
 import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.unboxed.ObjectReference;
 
-import static org.mmtk.plan.concurrent.copy.SpaceState.*;
+import static org.mmtk.plan.concurrent.copying.SpaceState.*;
 import static org.mmtk.harness.lang.Trace.trace;
 
 /**

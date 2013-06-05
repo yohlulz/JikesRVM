@@ -1,4 +1,4 @@
-package org.mmtk.plan.concurrent.copy;
+package org.mmtk.plan.concurrent.copying;
 
 import org.mmtk.plan.concurrent.ConcurrentConstraints;
 import org.mmtk.policy.CopySpace;
