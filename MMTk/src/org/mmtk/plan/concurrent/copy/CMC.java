@@ -56,6 +56,13 @@ public class CMC extends Concurrent {
      */
     static final ConcurrentHashMap<CopySpace, AtomicReference<SpaceState>> usedFlagBySpace = new ConcurrentHashMap<>();
 
+    private static final ThreadLocal<SpaceEntryComparator> comparators = new ThreadLocal<SpaceEntryComparator>() {
+        @Override
+        protected SpaceEntryComparator initialValue() {
+            return new SpaceEntryComparator(NOT_USED);
+        }
+    };
+
     /**
      * Stores each copy state by its accessed count.
      */
@@ -96,7 +103,7 @@ public class CMC extends Concurrent {
         final int nurseryPages = Options.nurserySize.getMaxNursery();
         final int totalPages = (int) (Space.AVAILABLE_PAGES * MEMORY_FRACTION);
 
-        final int count = MIN_SPACES + (totalPages / nurseryPages) % (MAX_SPACES - MIN_SPACES);
+        final int count = MIN_SPACES - 1 + (totalPages / nurseryPages) % (MAX_SPACES - MIN_SPACES);
         for (int i = 0; i < count; i++) {
             final CopySpace space = new CopySpace("cmc-" + i, true, VMRequest.create(MEMORY_FRACTION / (count + 1 ), true));
             usedFlagBySpace.put(space, new AtomicReference<SpaceState>(NOT_USED));
@@ -120,12 +127,15 @@ public class CMC extends Concurrent {
         if (space != null) {
             if (usedFlagBySpace.get(space).compareAndSet(FROM_SPACE, NOT_USED)
                     || usedFlagBySpace.get(space).compareAndSet(TO_SPACE, NOT_USED)) {
+                /* make sure to update the count of a from/to space's state */
                 updateSpaceCount(consideredEntry.getKey(), state);
                 return consideredEntry.getKey();
             } else {
+                /* some other thread updated the space's state so make sure to revert any considered space's state */
                 usedFlagBySpace.get(consideredEntry.getKey()).set(consideredEntry.getValue().get());
             }
         } else {
+            /* first considered space, just update the space's count */
             updateSpaceCount(consideredEntry.getKey(), state);
             return consideredEntry.getKey();
         }
@@ -150,7 +160,7 @@ public class CMC extends Concurrent {
     private static Entry<CopySpace, AtomicReference<SpaceState>> filterSpaces(SpaceState state) {
 
         final List<Entry<CopySpace, AtomicReference<SpaceState>>> result = new ArrayList<>(usedFlagBySpace.entrySet());
-        Collections.sort(result, new SpaceEntryComparator(state));
+        Collections.sort(result, comparators.get().setState(state));
         /* try to set the new state for the most fit space for the desired state
          * -----------------
          * if one space's state has already been changed -> try the next best fit space for the desired state.
@@ -236,10 +246,15 @@ public class CMC extends Concurrent {
      */
     private static class SpaceEntryComparator implements Comparator<Entry<CopySpace, AtomicReference<SpaceState>>> {
 
-        private final SpaceState state;
+        private SpaceState state;
 
         SpaceEntryComparator(SpaceState state) {
             this.state = state;
+        }
+
+        SpaceEntryComparator setState(SpaceState state) {
+            this.state = state;
+            return this;
         }
 
         @Override
