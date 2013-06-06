@@ -6,7 +6,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.mmtk.plan.concurrent.copying.SpaceState;
 import org.mmtk.policy.Space;
 
 /**

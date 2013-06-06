@@ -1,9 +1,6 @@
 package org.mmtk.plan.concurrent.spaces.state;
 
 import static org.mmtk.harness.lang.Trace.trace;
-import static org.mmtk.plan.concurrent.copying.SpaceState.FROM_SPACE;
-import static org.mmtk.plan.concurrent.copying.SpaceState.NOT_USED;
-import static org.mmtk.plan.concurrent.copying.SpaceState.TO_SPACE;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,10 +11,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.mmtk.harness.lang.Trace.Item;
-import org.mmtk.plan.concurrent.copying.SpaceState;
 import org.mmtk.policy.Space;
 import org.mmtk.utility.options.Options;
 import org.vmmagic.pragma.Inline;
+
+import static org.mmtk.plan.concurrent.spaces.state.SpaceState.*;
 
 /**
  * Represents a manager that calculates the fittest space to be considered further on.
