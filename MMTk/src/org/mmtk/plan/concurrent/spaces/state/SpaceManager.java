@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.mmtk.harness.lang.Trace.Item;
+import org.mmtk.plan.Plan;
 import org.mmtk.policy.Space;
 import org.mmtk.utility.options.Options;
 import org.vmmagic.pragma.Inline;
@@ -156,7 +157,7 @@ public final class SpaceManager {
      */
     @Inline
     public static int getNumberOfSpaces() {
-        final int nurseryPages = Options.nurserySize.getMaxNursery();
+        final int nurseryPages = Options.nurserySize == null ? Plan.DEFAULT_MAX_NURSERY : Options.nurserySize.getMaxNursery();
         final int totalPages = (int) (Space.AVAILABLE_PAGES * MEMORY_FRACTION);
 
         return (MIN_SPACES - 1) + (totalPages / nurseryPages) % (MAX_SPACES - MIN_SPACES);
