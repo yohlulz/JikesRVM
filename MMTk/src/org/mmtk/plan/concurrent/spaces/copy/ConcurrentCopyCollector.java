@@ -12,8 +12,6 @@ import org.mmtk.policy.LargeObjectLocal;
 import org.mmtk.policy.Space;
 import org.mmtk.utility.ForwardingWord;
 import org.mmtk.utility.deque.AddressDeque;
-import org.mmtk.utility.deque.AddressPairDeque;
-import org.mmtk.utility.deque.ObjectReferenceDeque;
 import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Uninterruptible;
@@ -44,20 +42,16 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
      */
     private final LargeObjectLocal largeSpace;
 
-    private final ObjectReferenceDeque modbuf;
-
+    /**
+     * Async support for pool and pop of addresses.
+     */
     private final AddressDeque remset;
-
-    private final AddressPairDeque arrayRemset;
 
     public ConcurrentCopyCollector() {
         copySpace = new CopyLocal();
         largeSpace = new LargeObjectLocal(Plan.loSpace);
 
-        arrayRemset = new AddressPairDeque(global().arrayRemsetPool);
         remset = new AddressDeque("remset", global().remsetPool);
-        modbuf = new ObjectReferenceDeque("modbuf", global().modbufPool);
-
         ccTrace = new ConcurrentCopyTraceLocal(global().getTrace(), this);
     }
 
@@ -66,16 +60,8 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
         return ccTrace;
     }
 
-    ObjectReferenceDeque getModbuf() {
-        return modbuf;
-    }
-
     AddressDeque getRemset() {
         return remset;
-    }
-
-    AddressPairDeque getArrayRemset() {
-        return arrayRemset;
     }
 
     CopyLocal getCopySpace() {
@@ -84,12 +70,8 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
 
     @Override
     protected boolean concurrentTraceComplete() {
+        /* empty space => we are done working */
         return copySpace.getCursor() == Address.zero();
-        //FIXME
-        /*
-         * let the collectors run until a new collection request is done so all
-         * concurrent collectors are aborted
-         */
     }
 
     @Inline
@@ -128,9 +110,7 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
         if (phaseId == ConcurrentCopy.PREPARE) {
             super.collectionPhase(phaseId, primary);
             largeSpace.prepare(true);
-            global().arrayRemsetPool.prepareNonBlocking();
             global().remsetPool.prepareNonBlocking();
-            global().modbufPool.prepareNonBlocking();
 
             Space oldSpace = copySpace.getSpace();
             copySpace.rebind(global().getNewSpaceForState(copySpace.getSpace(), SpaceState.TO_SPACE));
@@ -147,9 +127,7 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
         if (phaseId == ConcurrentCopy.RELEASE) {
             ccTrace.release();
             largeSpace.release(true);
-            global().arrayRemsetPool.reset();
             global().remsetPool.reset();
-            global().modbufPool.reset();
         }
 
         super.collectionPhase(phaseId, primary);

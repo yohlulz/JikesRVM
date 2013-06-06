@@ -19,11 +19,21 @@ import org.mmtk.utility.heap.VMRequest;
 import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Interruptible;
+import org.vmmagic.pragma.Uninterruptible;
 import org.vmmagic.unboxed.ObjectReference;
 
 import static org.mmtk.plan.concurrent.spaces.state.SpaceState.*;
 import static org.mmtk.plan.concurrent.spaces.state.SpaceManager.*;
 
+/**
+ * {@inheritDoc}
+ * Represents a global state of a concurrent copying collector based on multiple copy spaces that
+ * are accessed in parallel from multiple threads.
+ * 
+ * @author Ovidiu Maja
+ * @version 20.03.2013
+ */
+@Uninterruptible
 public class ConcurrentCopy extends Concurrent {
 
     /**
@@ -31,17 +41,19 @@ public class ConcurrentCopy extends Concurrent {
      */
     public static final int CC_ALLOC = Plan.ALLOC_DEFAULT;
 
-    public final SharedDeque modbufPool = new SharedDeque("modBufs", metaDataSpace, 1);
-
+    /**
+     * Remembered sets to be used for barriers storage.
+     */
     public final SharedDeque remsetPool = new SharedDeque("remSets", metaDataSpace, 1);
-
-    public final SharedDeque arrayRemsetPool = new SharedDeque("arrayRemSets", metaDataSpace, 2);
 
     /**
      * Global trace.
      */
     private final Trace ccTrace;
 
+    /**
+     * Manager responsible with filtering the spaces by the fittest one for a certain state.
+     */
     private final SpaceManager spaceManager = new SpaceManager();
 
     {
@@ -88,6 +100,7 @@ public class ConcurrentCopy extends Concurrent {
 
         if (phaseId == ConcurrentCopy.PREPARE) {
             super.collectionPhase(phaseId);
+            /* prepare each space as a from or to space */
             for (Entry<Space, AtomicReference<SpaceState>> spaceEntry : spaceManager.getUsedFlagBySpace().entrySet()) {
                 ((CopySpace) spaceEntry.getKey()).prepare(spaceEntry.getValue().get() == FROM_SPACE);
             }
@@ -102,14 +115,14 @@ public class ConcurrentCopy extends Concurrent {
 
         if (phaseId == ConcurrentCopy.RELEASE) {
             ccTrace.release();
+            /* release all FROM spaces */
             for (Entry<Space, AtomicReference<SpaceState>> spaceEntry : spaceManager.getUsedFlagBySpace().entrySet()) {
                 if (spaceEntry.getValue().get() == FROM_SPACE) {
                     ((CopySpace) spaceEntry.getKey()).release();
                 }
             }
-            modbufPool.clearDeque(1);
+            /* also make sure to clear any remset stored so far. */
             remsetPool.clearDeque(1);
-            arrayRemsetPool.clearDeque(2);
         }
 
         super.collectionPhase(phaseId);
@@ -131,14 +144,15 @@ public class ConcurrentCopy extends Concurrent {
 
     @Override
     public boolean willNeverMove(ObjectReference object) {
-        for (Entry<Space, AtomicReference<SpaceState>> spaceEntry : spaceManager.getUsedFlagBySpace().entrySet()) {
-            if (Space.isInSpace(spaceEntry.getKey().getDescriptor(), object)) {
+        for (Space space : getSpaces()) {
+            if (Space.isInSpace(space.getDescriptor(), object)) {
                 return false;
             }
         }
         return super.willNeverMove(object);
     }
 
+    @Inline
     private int getReservedPagesForSpaces(SpaceState state) {
         int result = 0;
         for (Entry<Space, AtomicReference<SpaceState>> space : spaceManager.getUsedFlagBySpace().entrySet()) {
@@ -161,6 +175,7 @@ public class ConcurrentCopy extends Concurrent {
 
     @Override
     protected boolean concurrentCollectionRequired() {
+        /* trigger a new concurrent collection as soon as possible */
         if (!Phase.concurrentPhaseActive()) {
             return true;
         }

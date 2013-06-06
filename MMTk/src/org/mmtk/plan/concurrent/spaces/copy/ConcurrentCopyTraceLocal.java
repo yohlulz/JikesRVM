@@ -8,10 +8,7 @@ import org.mmtk.plan.TraceLocal;
 import org.mmtk.policy.CopyLocal;
 import org.mmtk.policy.CopySpace;
 import org.mmtk.policy.Space;
-import org.mmtk.utility.HeaderByte;
 import org.mmtk.utility.deque.AddressDeque;
-import org.mmtk.utility.deque.AddressPairDeque;
-import org.mmtk.utility.deque.ObjectReferenceDeque;
 import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Uninterruptible;
@@ -28,17 +25,20 @@ import org.vmmagic.unboxed.ObjectReference;
 @Uninterruptible
 public class ConcurrentCopyTraceLocal extends TraceLocal {
 
+    /**
+     * Per-thread copy space
+     */
     private final CopyLocal copySpace;
-    private final ObjectReferenceDeque modbuf;
+
+    /**
+     * Async support for poll and pop for barrier process.
+     */
     private final AddressDeque remset;
-    private final AddressPairDeque arrayRemset;
 
     public ConcurrentCopyTraceLocal(Trace trace, ConcurrentCopyCollector collector) {
         super(trace);
         copySpace = collector.getCopySpace();
-        modbuf = collector.getModbuf();
         remset = collector.getRemset();
-        arrayRemset = collector.getArrayRemset();
     }
 
     @Override
@@ -61,9 +61,7 @@ public class ConcurrentCopyTraceLocal extends TraceLocal {
             return object;
         }
         for (Space space : global().getSpaces()) {
-            trace(Item.DEBUG,
-                    space.toString() + ": " + Space.isInSpace(space.getDescriptor(), object) + "  "
-                            + object.toAddress());
+            trace(Item.DEBUG, space.toString() + ": " + Space.isInSpace(space.getDescriptor(), object) + "  " + object.toAddress());
             if (Space.isInSpace(space.getDescriptor(), object)) {
                 return ((CopySpace) space).traceObject(this, object, ConcurrentCopy.CC_ALLOC);
             }
@@ -85,32 +83,13 @@ public class ConcurrentCopyTraceLocal extends TraceLocal {
     @Override
     @Inline
     protected void processRememberedSets() {
-        trace(Item.DEBUG, "Processing modbuf");
-        ObjectReference obj;
-        while (!(obj = modbuf.pop()).isNull()) {
-            if (VM.DEBUG)
-                VM.debugging.modbufEntry(obj);
-            HeaderByte.markAsUnlogged(obj);
-            scanObject(obj);
-        }
         trace(Item.DEBUG, "Processing remset");
         while (!remset.isEmpty()) {
             Address loc = remset.pop();
-            if (VM.DEBUG)
+            if (VM.DEBUG) {
                 VM.debugging.remsetEntry(loc);
-            processRootEdge(loc, false);
-        }
-        trace(Item.DEBUG, "Processing array remset");
-        arrayRemset.flushLocal();
-        while (!arrayRemset.isEmpty()) {
-            Address start = arrayRemset.pop1();
-            Address guard = arrayRemset.pop2();
-            if (VM.DEBUG)
-                VM.debugging.arrayRemsetEntry(start, guard);
-            while (start.LT(guard)) {
-                processRootEdge(start, false);
-                start = start.plus(BYTES_IN_ADDRESS);
             }
+            processRootEdge(loc, false);
         }
     }
 }
