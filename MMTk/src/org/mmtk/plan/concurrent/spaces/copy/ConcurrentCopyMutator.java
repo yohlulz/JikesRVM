@@ -92,6 +92,12 @@ public class ConcurrentCopyMutator extends SimpleMutator {
             return;
           }
 
+          if (phaseId == ConcurrentCopy.PREPARE) {
+              super.collectionPhase(phaseId, primary);
+              copySpace.reset();
+              flushRememberedSets();
+          }
+
           if (phaseId == ConcurrentCopy.RELEASE) {
               super.collectionPhase(phaseId, primary);
               assertRemsetsFlushed();

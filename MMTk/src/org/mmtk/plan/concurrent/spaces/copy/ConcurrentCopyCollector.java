@@ -52,12 +52,13 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
 
     public ConcurrentCopyCollector() {
         copySpace = new CopyLocal();
-        ccTrace = new ConcurrentCopyTraceLocal(global().getTrace(), this);
         largeSpace = new LargeObjectLocal(Plan.loSpace);
 
         arrayRemset = new AddressPairDeque(global().arrayRemsetPool);
         remset = new AddressDeque("remset", global().remsetPool);
         modbuf = new ObjectReferenceDeque("modbuf", global().modbufPool);
+
+        ccTrace = new ConcurrentCopyTraceLocal(global().getTrace(), this);
     }
 
     @Override
@@ -83,7 +84,7 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
 
     @Override
     protected boolean concurrentTraceComplete() {
-        return false;
+        return copySpace.getCursor() == Address.zero();
         //FIXME
         /*
          * let the collectors run until a new collection request is done so all
@@ -125,6 +126,7 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
     @Inline
     public void collectionPhase(short phaseId, boolean primary) {
         if (phaseId == ConcurrentCopy.PREPARE) {
+            super.collectionPhase(phaseId, primary);
             largeSpace.prepare(true);
             global().arrayRemsetPool.prepareNonBlocking();
             global().remsetPool.prepareNonBlocking();
@@ -134,6 +136,7 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
             copySpace.rebind(global().getNewSpaceForState(copySpace.getSpace(), SpaceState.TO_SPACE));
             trace(Item.DEBUG, "C" + getId() + " - prepare - " + oldSpace + " -> " + copySpace.getSpace());
             ccTrace.prepare();
+            return;
         }
 
         if (phaseId == ConcurrentCopy.CLOSURE) {

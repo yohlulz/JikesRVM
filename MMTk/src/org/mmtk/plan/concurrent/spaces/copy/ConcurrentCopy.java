@@ -6,6 +6,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.mmtk.plan.Phase;
 import org.mmtk.plan.Plan;
 import org.mmtk.plan.Trace;
 import org.mmtk.plan.concurrent.Concurrent;
@@ -156,5 +157,13 @@ public class ConcurrentCopy extends Concurrent {
     @Override
     public final int getCollectionReserve() {
         return getReservedPagesForSpaces(TO_SPACE) + super.getCollectionReserve();
+    }
+
+    @Override
+    protected boolean concurrentCollectionRequired() {
+        if (!Phase.concurrentPhaseActive()) {
+            return true;
+        }
+        return false;
     }
 }
