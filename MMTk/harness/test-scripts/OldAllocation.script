@@ -19,7 +19,7 @@ type single {
 void main() {
     int list_size = 1000;
     int threshold = 10;
-    int iterations = 200;
+    int iterations = 150;
     int old_gen_iterations = 10000;
     int nr_threads = 2;
     go(iterations, threshold, nr_threads, old_gen_iterations);
