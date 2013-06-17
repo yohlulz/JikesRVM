@@ -70,8 +70,12 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
 
     @Override
     protected boolean concurrentTraceComplete() {
-        /* empty space => we are done working */
-        return copySpace.getCursor() == Address.zero();
+        final Space space = copySpace.getSpace();
+        if (space == null) {
+            return false;
+        }
+        final Address end = space.getStart().plus(space.getExtent());
+        return copySpace.getCursor().EQ(end);
     }
 
     @Inline
