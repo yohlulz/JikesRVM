@@ -28,7 +28,7 @@ public class SpaceEntryComparator<T extends Space> implements Comparator<Entry<T
 
     public SpaceEntryComparator() {
         this.state = SpaceState.NOT_USED;
-        countBySpace = new ConcurrentHashMap<>();
+        countBySpace = new ConcurrentHashMap<T, AtomicLong>();
     }
 
     public SpaceEntryComparator<T> setState(SpaceState state) {

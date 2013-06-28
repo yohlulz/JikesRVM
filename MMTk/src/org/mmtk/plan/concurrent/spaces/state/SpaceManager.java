@@ -52,12 +52,12 @@ public final class SpaceManager {
     /**
      * Stores each space associated with its current state.
      */
-    private final ConcurrentHashMap<Space, AtomicReference<SpaceState>> usedFlagBySpace = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Space, AtomicReference<SpaceState>> usedFlagBySpace = new ConcurrentHashMap<Space, AtomicReference<SpaceState>>();
 
     /**
-     * Stores each space associated with its curent collection count number.
+     * Stores each space associated with its current collection count number.
      */
-    private final ConcurrentHashMap<Space, AtomicLong> countBySpace = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Space, AtomicLong> countBySpace = new ConcurrentHashMap<Space, AtomicLong>();
 
     /**
      * Computes a new space based on current statistics.
@@ -127,7 +127,8 @@ public final class SpaceManager {
      */
     private Entry<Space, AtomicReference<SpaceState>> filterSpaces(SpaceState state) {
 
-        final List<Entry<Space, AtomicReference<SpaceState>>> result = new ArrayList<>(usedFlagBySpace.entrySet());
+        final List<Entry<Space, AtomicReference<SpaceState>>> result = new ArrayList<Entry<Space, AtomicReference<SpaceState>>>(
+                usedFlagBySpace.entrySet());
         Collections.sort(result, comparators.get().setState(state).setCountBySpace(countBySpace));
         /*
          * try to set the new state for the most fit space for the desired state
