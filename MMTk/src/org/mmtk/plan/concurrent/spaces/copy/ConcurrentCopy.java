@@ -16,6 +16,7 @@ import org.mmtk.policy.CopySpace;
 import org.mmtk.policy.Space;
 import org.mmtk.utility.deque.SharedDeque;
 import org.mmtk.utility.heap.VMRequest;
+import org.mmtk.utility.options.Options;
 import org.mmtk.vm.VM;
 import org.vmmagic.pragma.Inline;
 import org.vmmagic.pragma.Interruptible;
@@ -59,6 +60,8 @@ public class ConcurrentCopy extends Concurrent {
     {
         final Space defaultSpace = new CopySpace("cc-default", true, VMRequest.create((1 - MEMORY_FRACTION) / MIN_SPACES, true));
         VM.assertions._assert(spaceManager.addSpace(defaultSpace), "Default space could not be added to space manager.");
+
+        debug("Added default space");
     }
 
     public ConcurrentCopy() {
@@ -78,6 +81,10 @@ public class ConcurrentCopy extends Concurrent {
         for (int i = 0; i < count; i++) {
             final Space space = new CopySpace("cmc-" + i, true, VMRequest.create(MEMORY_FRACTION / (count + 1), true));
             VM.assertions._assert(spaceManager.addSpace(space), "Space " + space + " could not be added.");
+        }
+        debug("Added " + count + " spaces.");
+        if (Options.verbose.getValue() >= 16) {
+            Space.printUsageMB();
         }
     }
 
@@ -105,6 +112,7 @@ public class ConcurrentCopy extends Concurrent {
                 ((CopySpace) spaceEntry.getKey()).prepare(spaceEntry.getValue().get() == FROM_SPACE);
             }
             ccTrace.prepareNonBlocking();
+            debug("Prepared all from spaces.");
             return;
         }
 
@@ -123,6 +131,7 @@ public class ConcurrentCopy extends Concurrent {
             }
             /* also make sure to clear any remset stored so far. */
             remsetPool.clearDeque(1);
+            debug("Released all from spaces");
         }
 
         super.collectionPhase(phaseId);
@@ -180,5 +189,12 @@ public class ConcurrentCopy extends Concurrent {
             return true;
         }
         return false;
+    }
+
+    public static final void debug(String message) {
+        if (Options.verbose.getValue() >= 16) {
+            System.err.printf("[DEBUG] %s\n", message);
+            System.err.flush();
+        }
     }
 }

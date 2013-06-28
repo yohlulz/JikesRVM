@@ -1,8 +1,5 @@
 package org.mmtk.plan.concurrent.spaces.copy;
 
-import static org.mmtk.harness.lang.Trace.trace;
-
-import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.plan.Plan;
 import org.mmtk.plan.TraceLocal;
 import org.mmtk.plan.concurrent.ConcurrentCollector;
@@ -118,8 +115,8 @@ public class ConcurrentCopyCollector extends ConcurrentCollector {
 
             Space oldSpace = copySpace.getSpace();
             copySpace.rebind(global().getNewSpaceForState(copySpace.getSpace(), SpaceState.TO_SPACE));
-            trace(Item.DEBUG, "C" + getId() + " - prepare - " + oldSpace + " -> " + copySpace.getSpace());
             ccTrace.prepare();
+            ConcurrentCopy.debug("C" + getId() + " - prepare - " + oldSpace + " -> " + copySpace.getSpace());
             return;
         }
 

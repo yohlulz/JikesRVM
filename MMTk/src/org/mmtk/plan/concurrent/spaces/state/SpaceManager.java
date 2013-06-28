@@ -1,6 +1,5 @@
 package org.mmtk.plan.concurrent.spaces.state;
 
-import static org.mmtk.harness.lang.Trace.trace;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -10,8 +9,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.plan.Plan;
+import org.mmtk.plan.concurrent.spaces.copy.ConcurrentCopy;
 import org.mmtk.policy.Space;
 import org.mmtk.utility.options.Options;
 import org.vmmagic.pragma.Inline;
@@ -66,7 +65,7 @@ public final class SpaceManager {
      * @return A new chosen space
      */
     public Space getNewSpaceForState(Space oldSpace, SpaceState state) {
-        trace(Item.DEBUG, state.toString() + usedFlagBySpace);
+        ConcurrentCopy.debug(state.toString() + usedFlagBySpace);
         final Entry<Space, AtomicReference<SpaceState>> consideredEntry = filterSpaces(state);
         if (oldSpace != null) {
             if (usedFlagBySpace.get(oldSpace).compareAndSet(FROM_SPACE, NOT_USED)
@@ -86,7 +85,7 @@ public final class SpaceManager {
             updateSpaceCount(consideredEntry.getKey(), state);
             return consideredEntry.getKey();
         }
-        trace(Item.DEBUG, "Check CMC space calulation, it returned null.");
+        ConcurrentCopy.debug("Check CMC space calulation, it returned null.");
         return null;
     }
 

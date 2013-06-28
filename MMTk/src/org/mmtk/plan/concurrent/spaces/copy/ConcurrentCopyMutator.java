@@ -1,8 +1,5 @@
 package org.mmtk.plan.concurrent.spaces.copy;
 
-import static org.mmtk.harness.lang.Trace.trace;
-
-import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.plan.SimpleMutator;
 import org.mmtk.plan.concurrent.spaces.state.SpaceState;
 import org.mmtk.policy.CopyLocal;
@@ -62,7 +59,7 @@ public class ConcurrentCopyMutator extends SimpleMutator {
     public void initMutator(int id) {
         super.initMutator(id);
         copySpace.rebind(global().getNewSpaceForState(null, SpaceState.FROM_SPACE));
-        trace(Item.DEBUG, "M" + id + " - init - " + copySpace.getSpace());
+        ConcurrentCopy.debug("M" + id + " - init - " + copySpace.getSpace());
     }
 
     @Override
@@ -101,7 +98,7 @@ public class ConcurrentCopyMutator extends SimpleMutator {
               assertRemsetsFlushed();
               Space oldSpace = copySpace.getSpace();
               copySpace.rebind(global().getNewSpaceForState(copySpace.getSpace(), SpaceState.FROM_SPACE));
-              trace(Item.DEBUG, "M" + getId() + "- release - " + oldSpace + " -> " + copySpace.getSpace());
+              ConcurrentCopy.debug("M" + getId() + "- release - " + oldSpace + " -> " + copySpace.getSpace());
           }
 
           super.collectionPhase(phaseId, primary);

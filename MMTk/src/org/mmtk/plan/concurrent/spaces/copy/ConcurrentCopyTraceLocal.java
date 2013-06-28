@@ -1,8 +1,5 @@
 package org.mmtk.plan.concurrent.spaces.copy;
 
-import static org.mmtk.harness.lang.Trace.trace;
-
-import org.mmtk.harness.lang.Trace.Item;
 import org.mmtk.plan.Trace;
 import org.mmtk.plan.TraceLocal;
 import org.mmtk.policy.CopyLocal;
@@ -61,12 +58,12 @@ public class ConcurrentCopyTraceLocal extends TraceLocal {
             return object;
         }
         for (Space space : global().getSpaces()) {
-            trace(Item.DEBUG, space.toString() + ": " + Space.isInSpace(space.getDescriptor(), object) + "  " + object.toAddress());
+            ConcurrentCopy.debug(space.toString() + ": " + Space.isInSpace(space.getDescriptor(), object) + "  " + object.toAddress());
             if (Space.isInSpace(space.getDescriptor(), object)) {
                 return ((CopySpace) space).traceObject(this, object, ConcurrentCopy.CC_ALLOC);
             }
         }
-        trace(Item.DEBUG, "Last space: " + copySpace.getSpace().toString());
+        ConcurrentCopy.debug("Last space: " + copySpace.getSpace().toString());
         return super.traceObject(object);
     }
 
@@ -83,7 +80,7 @@ public class ConcurrentCopyTraceLocal extends TraceLocal {
     @Override
     @Inline
     protected void processRememberedSets() {
-        trace(Item.DEBUG, "Processing remset");
+        ConcurrentCopy.debug("Processing remset");
         while (!remset.isEmpty()) {
             Address loc = remset.pop();
             if (VM.DEBUG) {
